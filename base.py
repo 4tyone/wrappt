@@ -1,31 +1,54 @@
-from pydantic import BaseModel
-from typing import Dict, Tuple, Any, Union
+from pydantic import BaseModel, ValidationError, ConfigDict
+from typing import Dict, Tuple, Any, List, Dict, Union
+from functools import wraps
 
 
-class Handler(BaseModel):
+class ErrorInputModel(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    error: Exception
+
+
+class Handler:
+    @staticmethod
+    def validate_handle_err(func):
+        """Decorator to validate the 'error' parameter."""
+        @wraps(func)
+        def wrapper(self, error, *args, **kwargs):
+            try:
+                ErrorInputModel(error=error)
+            except ValidationError as e:
+                raise ValueError(f"Invalid input for handle_err: {e}")
+            return func(self, error, *args, **kwargs)
+        return wrapper
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if 'handle_err' in cls.__dict__:
+            original_method = cls.__dict__['handle_err']
+            cls.handle_err = Handler.validate_handle_err(original_method)
+        else:
+            raise TypeError("Subclass must override the handle_err method")
+        if 'handle_ok' not in cls.__dict__:
+            raise TypeError("Subclass must override the handle_ok method")
+
     def handle_ok(self, *args: Any, **kwargs: Dict[str, Any]):
         raise NotImplementedError("The handle_ok method should be implemented by subclasses.")
 
-    def handle_err(self, *args: Any, **kwargs: Dict[str, Any]):
+    def handle_err(self, error: Exception):
         raise NotImplementedError("The handle_err method should be implemented by subclasses.")
 
 
 class Pill(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra='allow')
+
     handler: Handler
-    args: Tuple[Any, ...] = ()
-    kwargs: Dict[str, Any] = {}
-
-    class Config:
-        extra = 'allow'
-
-    def __init__(self, handler: Handler, *args: Any, **kwargs: Dict[str, Any]):
-        super().__init__(handler=handler, args=args, kwargs=kwargs)
 
 
 class Layer(BaseModel):
+    name: str
     context: str
 
-    def run(self, input: Union[str, Pill], *args: Union[Any, Pill], **kwargs: Dict[str, Union[Any, Pill]]) -> str:
+    def run(self, input: Pill) -> Any:
         raise NotImplementedError("The run method should be implemented by subclasses.")
 
     def get_context(self) -> str:
@@ -33,25 +56,26 @@ class Layer(BaseModel):
 
 
 class Pipeline(BaseModel):
-    layers: Dict[str, Layer]= {}
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra='allow')
 
-    class Config:
-        extra = 'allow'
-
-    def __init__(self, **layers):
+    layers: List[Layer] = []
+    input_schema: BaseModel = None
+    output_schema: BaseModel = None
+    
+    def __init__(self, layers):
         super().__init__(layers=layers)
 
-    def forward(self, input: Union[str, Pill], *args: Union[Any, Pill], **kwargs: Dict[str, Union[Any, Pill]]) -> str:
+    def forward(self, input: Pill) -> Any:
         raise NotImplementedError("The forward method should be implemented by subclasses.")
 
 
 class Prompt(BaseModel):
-    prompt_schema: Dict[str, str]
+    prompt_schema: Dict[str, Union[str, None]]
 
     def get_prompt(self) -> str:
-        return "\n".join(self.prompt_schema.values())
+        return "\n".join(f"{key}: {value}" for key, value in self.prompt_schema.items())
 
-    def patch(self, **kwargs: Dict[str, Union[str, Pill]]):
+    def patch(self, **kwargs: Dict[str, str]):
         for key, value in kwargs.items():
             if key in self.prompt_schema:
                 self.prompt_schema[key] = value
@@ -59,24 +83,38 @@ class Prompt(BaseModel):
                 raise KeyError(f"Component '{key}' does not exist in prompt_schema.")
 
 
-class Tool(Layer):
-    tool_name: str
-    api_schema: BaseModel
-
-
-class LLM(Layer):
-    llm: Any
-
 
 if __name__ == "__main__":
-    handler = Handler()
-    pill = Pill(handler, 4)
+    # handler = Handler()
+    # pill = Pill(handler, 4)
 
-    tool = Tool(context="sup", tool_name="suup", api_schema=pill)
+    # tool = Tool(context="sup", tool_name="suup", api_schema=pill)
 
 
-    prompt = Prompt(prompt_schema={
-            "sup": "heyaaa"
-        })
+    # prompt = Prompt(prompt_schema={
+    #         "sup": "heyaaa"
+    #     })
 
-    print(prompt.get_prompt())
+    # print(prompt.get_prompt())
+
+    class MyHandler(Handler):
+        def handle_err(self, error: Exception):
+            print(f"Handling error: {error}")
+        def handle_ok(self, error):
+            print(f"Handling error: {error}")
+
+    # Example
+    handler = MyHandler()
+    handler.handle_err(ValueError("This is a valid error"))  # Works fine
+
+
+    # class MyHandler(Handler):
+    #     def handle_err(self, error):
+    #         print(f"Handling error: {error}")
+
+    # handler = MyHandler()
+    # handler.handle_err("This is not an Exception")  # Invalid input
+
+    # class MyHandler(Handler):
+    #     pass
+
