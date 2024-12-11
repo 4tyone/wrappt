@@ -1,12 +1,17 @@
 from pydantic import BaseModel
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Type
 import instructor
 from anthropic import Anthropic
 import openai
 from wrappt.base import Layer, Pill
 
-class OutputSchema(BaseModel):
-    output: str
+
+class LLMInputSchema(BaseModel):
+    query: str
+
+class LLMOutputSchema(BaseModel):
+    response: str
+
 
 class LLM(Layer):
     provider: str
@@ -23,14 +28,27 @@ class LLM(Layer):
                 return instructor.from_openai(openai.OpenAI(api_key=self.api_key))
             case _:
                 raise NotImplementedError(f"The provider {self.provider} is not implemented yet.")
-        
+            
+    def set_input_schema(self, new_schema: Type[BaseModel]):
+        """Sets a new input schema dynamically."""
+        if not issubclass(new_schema, BaseModel):
+            raise TypeError("Input schema must be a subclass of BaseModel.")
+        self.input_schema = new_schema
 
-    def run(self, input: Pill, chat_history: Optional[List[Dict]] = None, output_schema: BaseModel = OutputSchema) -> BaseModel:
+    def set_output_schema(self, new_schema: Type[BaseModel]):
+        """Sets a new output schema dynamically."""
+        if not issubclass(new_schema, BaseModel):
+            raise TypeError("Output schema must be a subclass of BaseModel.")
+        self.output_schema = new_schema
+        
+    def run(self, input: Pill, chat_history: Optional[List[Dict]] = None) -> Pill:
         # TODO: implement error handling with Pill
+        self.pill_validator(pill=input)
+        
         messages = [
             {
                 "role": "system",
-                "content": self.context,
+                "content": str(input.data),
             }
         ]
 
@@ -39,7 +57,7 @@ class LLM(Layer):
 
         new_message = {
             "role": "user",
-            "content": input.query,
+            "content": input.data.query,
         }
 
         messages.append(new_message)
@@ -47,9 +65,9 @@ class LLM(Layer):
         response = self._get_client().chat.completions.create(
             messages=messages,
             model=self.model,
-            response_model=output_schema,
+            response_model=self.output_schema,
             temperature=self.temperature,
             max_tokens=self.max_tokens,
         )
 
-        return response
+        return Pill(handler=input.handler, data=response)

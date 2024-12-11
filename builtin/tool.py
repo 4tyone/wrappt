@@ -1,10 +1,8 @@
 from pydantic import BaseModel
-from typing import Union, TypeVar, Any, Type
+from typing import Type
 from wrappt.base import Layer
-from collections.abc import Iterable
-from instructor.dsl.partial import Partial
 
-T = TypeVar("T", bound=Union[BaseModel, "Iterable[Any]", "Partial[Any]"])
 
 class Tool(Layer):
-    input_schema: Type[BaseModel] #type[T]
+    input_schema: Type[BaseModel]
+    output_schema: Type[BaseModel]

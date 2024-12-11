@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ValidationError, ConfigDict
-from typing import Dict, Tuple, Any, List, Dict, Union
+from typing import Dict, Any, List, Dict, Union, Optional, Type
+from abc import abstractmethod
 from functools import wraps
 
 
@@ -31,28 +32,40 @@ class Handler:
         if 'handle_ok' not in cls.__dict__:
             raise TypeError("Subclass must override the handle_ok method")
 
+    @abstractmethod
     def handle_ok(self, *args: Any, **kwargs: Dict[str, Any]):
         raise NotImplementedError("The handle_ok method should be implemented by subclasses.")
 
+    @abstractmethod
     def handle_err(self, error: Exception):
         raise NotImplementedError("The handle_err method should be implemented by subclasses.")
 
 
 class Pill(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True, extra='allow')
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     handler: Handler
+    data: BaseModel
 
 
 class Layer(BaseModel):
     name: str
     context: str
+    input_schema: Optional[Type[BaseModel]] = None
+    output_schema: Optional[Type[BaseModel]] = None
 
-    def run(self, input: Pill) -> Any:
+    @abstractmethod
+    def run(self, input: Pill, *args, **kwargs) -> Pill:
         raise NotImplementedError("The run method should be implemented by subclasses.")
 
     def get_context(self) -> str:
         return self.context
+    
+    def pill_validator(self, pill: Pill):
+        try:
+            _ = self.input_schema.model_validate(pill.data)
+        except ValidationError as e:
+            raise ValidationError("Validation error:", e)
 
 
 class Pipeline(BaseModel):
@@ -65,7 +78,8 @@ class Pipeline(BaseModel):
     def __init__(self, layers):
         super().__init__(layers=layers)
 
-    def forward(self, input: Pill) -> Any:
+    @abstractmethod
+    def forward(self, input: Pill, *args, **kwargs) -> Pill:
         raise NotImplementedError("The forward method should be implemented by subclasses.")
 
 
