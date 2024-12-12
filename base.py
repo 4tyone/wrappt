@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ValidationError, ConfigDict
-from typing import Dict, Any, List, Dict, Union, Optional, Type
+from typing import Dict, Any, List, Dict, Optional, Type
 from abc import abstractmethod
 from functools import wraps
 
@@ -49,10 +49,13 @@ class Pill(BaseModel):
 
 
 class Layer(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra='allow')
+
     name: str
     context: str
-    input_schema: Optional[Type[BaseModel]] = None
-    output_schema: Optional[Type[BaseModel]] = None
+    input_schema: Type[BaseModel]
+    output_schema: Type[BaseModel]
+    llm: Optional[BaseModel] = None
 
     @abstractmethod
     def run(self, input: Pill, *args, **kwargs) -> Pill:
@@ -71,30 +74,17 @@ class Layer(BaseModel):
 class Pipeline(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, extra='allow')
 
-    layers: List[Layer] = []
-    input_schema: BaseModel = None
-    output_schema: BaseModel = None
+    layers: List[Layer]
+    input_schema: Type[BaseModel]
+    output_schema: Type[BaseModel]
+    llm: Optional[BaseModel] = None
     
-    def __init__(self, layers):
-        super().__init__(layers=layers)
+    def __init__(self, layers, output_schema):
+        super().__init__(layers=layers,output_schema=output_schema)
 
     @abstractmethod
     def forward(self, input: Pill, *args, **kwargs) -> Pill:
         raise NotImplementedError("The forward method should be implemented by subclasses.")
-
-
-class Prompt(BaseModel):
-    prompt_schema: Dict[str, Union[str, None]]
-
-    def get_prompt(self) -> str:
-        return "\n".join(f"{key}: {value}" for key, value in self.prompt_schema.items())
-
-    def patch(self, **kwargs: Dict[str, str]):
-        for key, value in kwargs.items():
-            if key in self.prompt_schema:
-                self.prompt_schema[key] = value
-            else:
-                raise KeyError(f"Component '{key}' does not exist in prompt_schema.")
 
 
 

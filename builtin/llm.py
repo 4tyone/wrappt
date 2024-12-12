@@ -3,7 +3,7 @@ from typing import Optional, List, Dict, Type
 import instructor
 from anthropic import Anthropic
 import openai
-from wrappt.base import Layer, Pill
+from wrappt.base import Pill
 
 
 class LLMInputSchema(BaseModel):
@@ -13,7 +13,8 @@ class LLMOutputSchema(BaseModel):
     response: str
 
 
-class LLM(Layer):
+class LLM(BaseModel):
+    context: str
     provider: str
     model: str
     api_key: str
@@ -28,27 +29,15 @@ class LLM(Layer):
                 return instructor.from_openai(openai.OpenAI(api_key=self.api_key))
             case _:
                 raise NotImplementedError(f"The provider {self.provider} is not implemented yet.")
-            
-    def set_input_schema(self, new_schema: Type[BaseModel]):
-        """Sets a new input schema dynamically."""
-        if not issubclass(new_schema, BaseModel):
-            raise TypeError("Input schema must be a subclass of BaseModel.")
-        self.input_schema = new_schema
-
-    def set_output_schema(self, new_schema: Type[BaseModel]):
-        """Sets a new output schema dynamically."""
-        if not issubclass(new_schema, BaseModel):
-            raise TypeError("Output schema must be a subclass of BaseModel.")
-        self.output_schema = new_schema
         
-    def run(self, input: Pill, chat_history: Optional[List[Dict]] = None) -> Pill:
+    def generate(self, input: Pill, output_schema: Type[BaseModel], chat_history: Optional[List[Dict]] = None) -> Pill:
         # TODO: implement error handling with Pill
-        self.pill_validator(pill=input)
+        # TODO: implement token/cost counter
         
         messages = [
             {
                 "role": "system",
-                "content": str(input.data),
+                "content": self.context,
             }
         ]
 
@@ -57,7 +46,7 @@ class LLM(Layer):
 
         new_message = {
             "role": "user",
-            "content": input.data.query,
+            "content": str(input.data),
         }
 
         messages.append(new_message)
@@ -65,7 +54,7 @@ class LLM(Layer):
         response = self._get_client().chat.completions.create(
             messages=messages,
             model=self.model,
-            response_model=self.output_schema,
+            response_model=output_schema,
             temperature=self.temperature,
             max_tokens=self.max_tokens,
         )
