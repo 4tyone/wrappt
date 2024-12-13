@@ -32,9 +32,17 @@ class Handler:
         if 'handle_ok' not in cls.__dict__:
             raise TypeError("Subclass must override the handle_ok method")
 
-    @abstractmethod
-    def handle_ok(self, *args: Any, **kwargs: Dict[str, Any]):
-        raise NotImplementedError("The handle_ok method should be implemented by subclasses.")
+    def handle_ok(self, *args: Any, **kwargs: Any):
+        if len(args) == 1 and not kwargs:
+            return args[0]
+        
+        if args and not kwargs:
+            return args
+        
+        if not args and kwargs:
+            return kwargs
+        
+        return args, kwargs
 
     @abstractmethod
     def handle_err(self, error: Exception):

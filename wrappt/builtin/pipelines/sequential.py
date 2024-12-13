@@ -1,9 +1,10 @@
 from wrappt.base import Pipeline, Pill
 
-class Sequential(Pipeline): #TODO: This will not work, needs to be fixed
+class Sequential(Pipeline):
     def forward(self, input: Pill) -> Pill:
         x = input
         for layer in self.layers:
+            layer.pill_validator(x)
             x = layer.run(x)
 
         return x

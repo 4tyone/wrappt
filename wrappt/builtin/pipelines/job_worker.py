@@ -38,7 +38,6 @@ class ToolPickerTool(Layer):
         response = self.llm.generate(input=input, output_schema=ToolPickerSchema)
 
         attributes = response.data.model_dump()
-        # TODO: modify all errors to return a Pill with error message
         if not all(isinstance(value, bool) for value in attributes.values()):
             return input.handler.handle_err(ValueError("All attributes must be boolean."))
 
