@@ -27,6 +27,14 @@ class LLM(BaseModel):
                 return instructor.from_anthropic(Anthropic(api_key=self.api_key))
             case "openai":
                 return instructor.from_openai(openai.OpenAI(api_key=self.api_key))
+            case "ollama":
+                return instructor.from_openai(
+                                                openai.OpenAI(
+                                                    base_url="http://localhost:11434/v1",
+                                                    api_key="ollama",
+                                                ),
+                                                mode=instructor.Mode.JSON,
+                                                )
             case _:
                 raise NotImplementedError(f"The provider {self.provider} is not implemented yet.")
         
