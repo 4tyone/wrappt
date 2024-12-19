@@ -1,0 +1,1 @@
+![Wrappt logo](https://github.com/4tyone/wrappt/blob/dev/%5BW%5D.png)
