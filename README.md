@@ -1,1 +1,4 @@
-![Wrappt logo](https://github.com/4tyone/wrappt/blob/dev/%5BW%5D.png)
+<p align="center">
+  <img src="[W].png" alt="Wrappt" width="200"/>
+  <h1 align="center">Wrappt</h1>
+</p>
