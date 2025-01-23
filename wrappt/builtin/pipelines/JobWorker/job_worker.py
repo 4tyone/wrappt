@@ -2,19 +2,16 @@ from wrappt.base import Pipeline, Pill, Layer
 from wrappt.builtin.llm import LLM
 from wrappt.builtin.pipelines.JobWorker.prompts import ToolPickerPrompt, JobWorkerPrompt
 from wrappt.builtin.pipelines.JobWorker.tools import ToolPickerTool, ChosenToolSchema
-from pydantic import create_model
 from typing import List, Dict, Type
 from pydantic import BaseModel
 
 
 class JobWorker(Pipeline):
-    input_schema: Type[BaseModel] = ToolPickerPrompt
 
-    def __init__(self, layers: List[Layer], output_schema: Type[BaseModel], llm: LLM):
-        super().__init__(layers=layers, output_schema=output_schema)
+    def __init__(self, llm: LLM, *args, **kwargs):
+        super().__init__(*args, **kwargs, llm=llm, input_schema=ToolPickerPrompt)
         self.tools: Dict[str, str] = {}
         self.tool_objects: Dict[str, Layer] = {}
-        self.llm: LLM = llm
 
         for layer in self.layers:
             self.tools[layer.name] = layer.context

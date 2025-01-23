@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ValidationError, ConfigDict
-from typing import Dict, Any, List, Dict, Optional, Type
+from typing import Any, List, Optional, Type
 from abc import abstractmethod
 from functools import wraps
 
@@ -82,13 +82,10 @@ class Layer(BaseModel):
 class Pipeline(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, extra='allow')
 
-    layers: List[Layer]
     input_schema: Type[BaseModel]
     output_schema: Type[BaseModel]
     llm: Optional[BaseModel] = None
-    
-    def __init__(self, layers, output_schema):
-        super().__init__(layers=layers,output_schema=output_schema)
+    layers: Optional[List[Layer]] = None
 
     @abstractmethod
     def forward(self, input: Pill, *args, **kwargs) -> Pill:

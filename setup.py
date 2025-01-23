@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
     name="wrappt",
     version="0.1.0",
-    description="Lightweight and modular LLM wrapper framework.",
+    description="Wrappt is a minimalistic LLM wrapper framework designed for production and centered around robust error handling.",
     author="Mels Hakobyan",
     author_email="mels@4tyone.com",
     url="https://github.com/4tyone/wrappt",

@@ -14,7 +14,7 @@ class ToolPickerTool(Layer):
         self.pill_validator(pill=input)
 
         response = self.llm.generate(input=input, output_schema=self.output_schema)
-        chosen_tool = response.data.chosen_tool
+        chosen_tool = response.chosen_tool
 
         if chosen_tool not in tool_names:
             return input.handler.handle_err(ValueError(f"Invalid tool name: {chosen_tool}"))

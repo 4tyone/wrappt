@@ -3,7 +3,7 @@ from typing import Optional, List, Dict, Type
 import instructor
 from anthropic import Anthropic
 import openai
-from wrappt.base import Pill
+import google.generativeai as genai
 
 
 class LLMInputSchema(BaseModel):
@@ -14,7 +14,6 @@ class LLMOutputSchema(BaseModel):
 
 
 class LLM(BaseModel):
-    context: str
     provider: str
     model: str
     api_key: str
@@ -35,36 +34,44 @@ class LLM(BaseModel):
                                                 ),
                                                 mode=instructor.Mode.JSON,
                                                 )
+            case "deepseek":
+                return instructor.from_openai(
+                                                openai.OpenAI(
+                                                    base_url="https://api.deepseek.com",
+                                                    api_key=self.api_key,
+                                                ),
+                                                mode=instructor.Mode.JSON,
+                                                )
+            case "google":
+                genai.configure(api_key=self.api_key)
+                return instructor.from_gemini(
+                                                client=genai.GenerativeModel(
+                                                            model_name=self.model,
+                                                        ),
+                                                mode=instructor.Mode.GEMINI_JSON,
+                                                )
             case _:
                 raise NotImplementedError(f"The provider {self.provider} is not implemented yet.")
         
-    def generate(self, input: Pill, output_schema: Type[BaseModel], chat_history: Optional[List[Dict]] = None) -> Pill:
-        # TODO: implement error handling with Pill
-        # TODO: implement token/cost counter
-        
-        messages = [
-            {
-                "role": "system",
-                "content": self.context,
+    def generate(self, messages: List[Dict], output_schema: Type[BaseModel]) -> BaseModel:
+    
+        if self.provider == "google":
+
+            config = {
+                        "response_mime_type": "application/json"#, response_schema=list[SiReOutputSchema]
             }
-        ]
+            response = self._get_client().chat.completions.create(
+                messages=messages,
+                response_model=output_schema,
+                generation_config=config
+            )
+        else:
+            response = self._get_client().chat.completions.create(
+                messages=messages,
+                model=self.model,
+                response_model=output_schema,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+            )
 
-        if chat_history:
-            messages.extend(chat_history)
-
-        new_message = {
-            "role": "user",
-            "content": str(input.data),
-        }
-
-        messages.append(new_message)
-
-        response = self._get_client().chat.completions.create(
-            messages=messages,
-            model=self.model,
-            response_model=output_schema,
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
-        )
-
-        return Pill(handler=input.handler, data=response)
+        return response
